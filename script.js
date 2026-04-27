@@ -51,8 +51,8 @@ class DemoChat {
                 this.elements.foundryEndpoint.value = this.config.endpoint;
                 this.elements.foundryDeployment.value = this.config.deployment;
             }
-        } catch {
-            // Ignore parse errors
+        } catch (err) {
+            console.warn('Failed to load saved config:', err);
         }
     }
 
@@ -94,8 +94,8 @@ class DemoChat {
                 endpoint: this.config.endpoint,
                 deployment: this.config.deployment
             }));
-        } catch {
-            // Storage might be unavailable
+        } catch (err) {
+            console.warn('localStorage unavailable, settings will not persist:', err);
         }
 
         this.showSettingsStatus('Settings saved!', 'success');
@@ -230,20 +230,46 @@ class DemoChat {
     startNewChat() {
         // Clear messages and reset state
         const messages = this.elements.chatMessages;
-        messages.innerHTML = `
-            <div class="welcome-message" role="article" aria-label="Welcome message">
-                <div class="avatar ai-avatar" aria-hidden="true">🤖</div>
-                <div class="message-content">
-                    <p class="message-author">Assistant</p>
-                    <p>Hi! I'm your AI assistant powered by Azure AI Foundry.<br>
-                        Click <strong>⚙️ Settings</strong> to configure your AI Foundry agent, then start chatting!</p>
-                </div>
-            </div>`;
+        messages.replaceChildren(this.buildWelcomeNode());
         this.conversationHistory = [];
         this.previousResponseId = null;
         this.elements.userInput.value = '';
         this.elements.userInput.style.height = 'auto';
         this.elements.userInput.focus();
+    }
+
+    buildWelcomeNode() {
+        const wrap = document.createElement('div');
+        wrap.className = 'welcome-message';
+        wrap.setAttribute('role', 'article');
+        wrap.setAttribute('aria-label', 'Welcome message');
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar ai-avatar';
+        avatar.setAttribute('aria-hidden', 'true');
+        avatar.textContent = '🤖';
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+
+        const author = document.createElement('p');
+        author.className = 'message-author';
+        author.textContent = 'Assistant';
+
+        const body = document.createElement('p');
+        body.appendChild(document.createTextNode(
+            "Hi! I'm your AI assistant powered by Azure AI Foundry. Click "));
+        const strong = document.createElement('strong');
+        strong.textContent = '⚙️ Settings';
+        body.appendChild(strong);
+        body.appendChild(document.createTextNode(
+            ' to configure your AI Foundry agent, then start chatting!'));
+
+        content.appendChild(author);
+        content.appendChild(body);
+        wrap.appendChild(avatar);
+        wrap.appendChild(content);
+        return wrap;
     }
 
     async sendMessage() {
@@ -258,8 +284,14 @@ class DemoChat {
         this.addMessage('user', text);
 
         if (!this.isConfigured) {
-            this.addMessage('assistant',
-                'Please click ⚙️ <strong>Settings</strong> to configure your AI Foundry agent before chatting.');
+            const frag = document.createDocumentFragment();
+            frag.appendChild(document.createTextNode('Please click ⚙️ '));
+            const strong = document.createElement('strong');
+            strong.textContent = 'Settings';
+            frag.appendChild(strong);
+            frag.appendChild(document.createTextNode(
+                ' to configure your AI Foundry agent before chatting.'));
+            this.addMessage('assistant', frag);
             this.elements.settingsBtn.focus();
             return;
         }
@@ -273,7 +305,7 @@ class DemoChat {
         try {
             const response = await this.callFoundryAPI(text);
             typingMsg.remove();
-            this.addMessage('assistant', this.formatResponse(response));
+            this.addMessage('assistant', this.formatResponseToDom(response));
 
             // Track history
             this.conversationHistory.push(
@@ -284,7 +316,7 @@ class DemoChat {
             typingMsg.remove();
             console.error('Error calling Foundry API:', err);
             this.addMessage('assistant',
-                `Sorry, I encountered an error: ${this.escapeHtml(err.message)}`, true);
+                `Sorry, I encountered an error: ${err.message}`, true);
         } finally {
             this.setGeneratingState(false);
             this.elements.userInput.focus();
@@ -317,7 +349,16 @@ class DemoChat {
     // ----------------------------------------------------------------
     // DOM helpers
     // ----------------------------------------------------------------
-    addMessage(role, htmlContent, isError = false) {
+
+    /**
+     * Add a message bubble to the chat.
+     * @param {string} role  - 'user' or 'assistant'
+     * @param {string|DocumentFragment|Element} content
+     *   - string: rendered as plain text (safe, never interpreted as HTML)
+     *   - DocumentFragment/Element: appended directly (must be built via DOM APIs)
+     * @param {boolean} isError
+     */
+    addMessage(role, content, isError = false) {
         const div = document.createElement('div');
         div.className = `message ${role}-message${isError ? ' error-message' : ''}`;
         div.setAttribute('role', 'article');
@@ -338,13 +379,11 @@ class DemoChat {
         const textDiv = document.createElement('div');
         textDiv.className = 'message-text';
 
-        if (role === 'assistant') {
-            // htmlContent is pre-processed HTML from formatResponse() or a trusted
-            // hardcoded string; all API-sourced text has been run through escapeHtml()
-            // before any markup is added.
-            textDiv.innerHTML = htmlContent;
+        if (content instanceof DocumentFragment || content instanceof Element) {
+            textDiv.appendChild(content);
         } else {
-            textDiv.textContent = htmlContent;
+            // Plain text — textContent never interprets HTML, so this is XSS-safe.
+            textDiv.textContent = String(content);
         }
 
         contentDiv.appendChild(authorEl);
@@ -368,16 +407,35 @@ class DemoChat {
         div.className = 'message assistant-message';
         div.setAttribute('role', 'status');
         div.setAttribute('aria-label', 'Assistant is typing');
-        div.innerHTML = `
-            <div class="avatar ai-avatar" aria-hidden="true">🤖</div>
-            <div class="message-content">
-                <p class="message-author">Assistant</p>
-                <div class="message-text">
-                    <div class="typing-indicator" aria-hidden="true">
-                        <span></span><span></span><span></span>
-                    </div>
-                </div>
-            </div>`;
+
+        const avatarDiv = document.createElement('div');
+        avatarDiv.className = 'avatar ai-avatar';
+        avatarDiv.setAttribute('aria-hidden', 'true');
+        avatarDiv.textContent = '🤖';
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+
+        const authorEl = document.createElement('p');
+        authorEl.className = 'message-author';
+        authorEl.textContent = 'Assistant';
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'message-text';
+
+        const indicator = document.createElement('div');
+        indicator.className = 'typing-indicator';
+        indicator.setAttribute('aria-hidden', 'true');
+        for (let i = 0; i < 3; i++) {
+            indicator.appendChild(document.createElement('span'));
+        }
+
+        textDiv.appendChild(indicator);
+        contentDiv.appendChild(authorEl);
+        contentDiv.appendChild(textDiv);
+        div.appendChild(avatarDiv);
+        div.appendChild(contentDiv);
+
         this.elements.chatMessages.appendChild(div);
         this.scrollToBottom();
         return div;
@@ -394,30 +452,108 @@ class DemoChat {
         return div.innerHTML;
     }
 
-    formatResponse(text) {
-        // All API text is HTML-escaped first, so no injected markup can survive.
-        const escaped = this.escapeHtml(text);
+    /**
+     * Parse a URL string and return an <a> element, or null if the URL is invalid
+     * or uses a non-http(s) scheme (guards against javascript: XSS).
+     */
+    buildLink(url, label) {
+        try {
+            const parsed = new URL(url);
+            if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+                return null;
+            }
+        } catch {
+            return null;
+        }
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = label;
+        return a;
+    }
 
-        // Convert markdown-style links [label](url) → <a>
-        const withLinks = escaped.replace(
-            /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-            '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-        );
+    /**
+     * Convert API response text to a DocumentFragment using only DOM APIs.
+     * No innerHTML is used, so there is no XSS risk regardless of the content.
+     *
+     * Supported formatting:
+     *   - [label](url)   → <a> element
+     *   - bare https?:// URLs preceded by whitespace / start-of-string → <a> element
+     *   - double newlines → paragraph break
+     *   - single newlines → <br>
+     */
+    formatResponseToDom(text) {
+        const fragment = document.createDocumentFragment();
 
-        // Convert bare URLs that are NOT already inside an <a> tag.
-        // After markdown link substitution above, replaced URLs appear as
-        //   <a href="URL">label</a>  — the URL itself is preceded by href="
-        // A bare URL is preceded by whitespace, '(' or start-of-string.
-        const withBareLinks = withLinks.replace(
-            /(^|[\s(])(https?:\/\/[^\s<)"]+)/g,
-            '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>'
-        );
+        // Split into paragraphs on two or more consecutive newlines
+        const paragraphs = text.split(/\n{2,}/);
 
-        // Paragraphs separated by double newlines; single newlines → <br>
-        return withBareLinks
-            .split(/\n{2,}/)
-            .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
-            .join('');
+        for (const paraText of paragraphs) {
+            const p = document.createElement('p');
+            this.appendFormattedText(p, paraText);
+            fragment.appendChild(p);
+        }
+
+        return fragment;
+    }
+
+    /**
+     * Append formatted inline content (links, line breaks) to a parent element.
+     * All text nodes are set via textContent, guaranteeing XSS safety.
+     */
+    appendFormattedText(parent, text) {
+        // Combined regex: markdown links or bare URLs
+        const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|((?:^|(?<=[\s(]))(https?:\/\/[^\s<)"]+))/g;
+
+        let lastIndex = 0;
+        let match;
+
+        while ((match = linkPattern.exec(text)) !== null) {
+            // Text before this match (may contain \n → <br>)
+            if (match.index > lastIndex) {
+                this.appendTextWithBreaks(parent, text.slice(lastIndex, match.index));
+            }
+
+            const isMarkdownLink = match[1] !== undefined;
+            if (isMarkdownLink) {
+                const label = match[1];
+                const url = match[2];
+                const a = this.buildLink(url, label);
+                if (a) {
+                    parent.appendChild(a);
+                } else {
+                    // Unsafe URL – render as plain text
+                    parent.appendChild(document.createTextNode(`[${label}](${url})`));
+                }
+            } else {
+                const url = match[3] || match[0];
+                const a = this.buildLink(url, url);
+                if (a) {
+                    parent.appendChild(a);
+                } else {
+                    parent.appendChild(document.createTextNode(url));
+                }
+            }
+
+            lastIndex = match.index + match[0].length;
+        }
+
+        // Remaining text after last match
+        if (lastIndex < text.length) {
+            this.appendTextWithBreaks(parent, text.slice(lastIndex));
+        }
+    }
+
+    /** Split text on newlines and insert <br> elements between lines. */
+    appendTextWithBreaks(parent, text) {
+        const lines = text.split('\n');
+        lines.forEach((line, idx) => {
+            parent.appendChild(document.createTextNode(line));
+            if (idx < lines.length - 1) {
+                parent.appendChild(document.createElement('br'));
+            }
+        });
     }
 
     // ----------------------------------------------------------------
