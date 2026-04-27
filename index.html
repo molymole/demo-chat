@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Chat - AI Foundry</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <a href="#chat-messages" class="skip-link">Skip to main chat content</a>
+
+    <div class="container" role="main" aria-label="Demo Chat Application">
+        <header role="banner">
+            <h1>💬 Demo Chat</h1>
+            <p class="subtitle">Powered by Azure AI Foundry</p>
+        </header>
+
+        <div class="chat-wrapper">
+            <div class="chat-container" id="chat-container" role="region" aria-labelledby="chat-title">
+                <div class="chat-header" role="banner">
+                    <div class="header-content">
+                        <h2 id="chat-title">Chat</h2>
+                        <div class="header-buttons" role="toolbar" aria-label="Chat controls">
+                            <button class="settings-btn" id="settings-btn"
+                                title="Configure AI Foundry agent"
+                                aria-label="Configure AI Foundry agent">
+                                ⚙️ Settings
+                            </button>
+                            <button class="new-chat-btn" id="new-chat-btn"
+                                title="Start a new conversation"
+                                aria-label="Start a new chat conversation">
+                                🔄 New Chat
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-messages" id="chat-messages" role="log" aria-live="polite" aria-relevant="additions"
+                    aria-label="Chat conversation">
+                    <div class="welcome-message" role="article" aria-label="Welcome message">
+                        <div class="avatar ai-avatar" aria-hidden="true">🤖</div>
+                        <div class="message-content">
+                            <p class="message-author">Assistant</p>
+                            <p>Hi! I'm your AI assistant powered by Azure AI Foundry.<br>
+                                Click <strong>⚙️ Settings</strong> to configure your AI Foundry agent, then start chatting!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chat-input-area" role="form" aria-label="Message input form">
+                    <div class="input-wrapper">
+                        <label for="user-input" class="visually-hidden">Your message</label>
+                        <textarea id="user-input" placeholder="Type a message..." rows="1"
+                            aria-label="Type your message here"
+                            aria-describedby="send-status"
+                            aria-required="false"></textarea>
+                        <button id="send-btn" class="send-btn" title="Send message"
+                            aria-label="Send message" type="submit">
+                            <span class="send-icon" aria-hidden="true">▶</span>
+                        </button>
+                    </div>
+                    <div class="input-info">
+                        <span id="send-status" class="send-status" role="status"
+                            aria-live="polite" aria-atomic="true"></span>
+                    </div>
+                    <div class="disclaimer">
+                        <p>AI-generated content may be incorrect</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer role="contentinfo">
+            <p>Powered by Azure AI Foundry</p>
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal" role="dialog" aria-labelledby="settings-modal-title"
+        aria-modal="true" aria-describedby="settings-modal-description" style="display: none;">
+        <div class="modal-overlay" aria-hidden="true"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="settings-modal-title">⚙️ AI Foundry Agent Settings</h2>
+            </div>
+            <div class="modal-body" id="settings-modal-description">
+                <p>Set up your Azure AI Foundry connection. Start by creating a project and deploying a model in the
+                    <a href="https://ai.azure.com" target="_blank" rel="noopener noreferrer">Azure AI Foundry portal</a>.
+                    Then enter your project details below:</p>
+                <div class="settings-form">
+                    <div class="form-group">
+                        <label for="foundry-endpoint">Endpoint URL:</label>
+                        <input type="url" id="foundry-endpoint"
+                            placeholder="https://your-resource.services.ai.azure.com"
+                            autocomplete="off" aria-describedby="endpoint-help">
+                        <small id="endpoint-help" class="form-help">Your AI Foundry project endpoint URL</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="foundry-deployment">Model Deployment:</label>
+                        <input type="text" id="foundry-deployment"
+                            placeholder="e.g., gpt-4o"
+                            autocomplete="off" aria-describedby="deployment-help">
+                        <small id="deployment-help" class="form-help">The name of your deployed model</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="foundry-key">API Key:</label>
+                        <input type="password" id="foundry-key"
+                            placeholder="Enter your API key"
+                            autocomplete="off" aria-describedby="key-help">
+                        <small id="key-help" class="form-help">Your AI Foundry project API key (not saved between sessions)</small>
+                    </div>
+
+                    <div class="settings-status" id="settings-status" role="status" aria-live="polite"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" id="settings-cancel"
+                    aria-label="Cancel settings" type="button">Cancel</button>
+                <button class="modal-btn modal-btn-primary" id="settings-save"
+                    aria-label="Save settings" type="button">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
