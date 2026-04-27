@@ -446,27 +446,23 @@ class DemoChat {
         el.scrollTop = el.scrollHeight;
     }
 
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     /**
      * Parse a URL string and return an <a> element, or null if the URL is invalid
      * or uses a non-http(s) scheme (guards against javascript: XSS).
      */
     buildLink(url, label) {
+        let href;
         try {
             const parsed = new URL(url);
             if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
                 return null;
             }
+            href = parsed.href;
         } catch {
             return null;
         }
         const a = document.createElement('a');
-        a.href = url;
+        a.href = href;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         a.textContent = label;
@@ -503,8 +499,11 @@ class DemoChat {
      * All text nodes are set via textContent, guaranteeing XSS safety.
      */
     appendFormattedText(parent, text) {
-        // Combined regex: markdown links or bare URLs
-        const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|((?:^|(?<=[\s(]))(https?:\/\/[^\s<)"]+))/g;
+        // Matches markdown links [label](url) OR bare URLs preceded by
+        // whitespace / '(' / start-of-string (captured in group 3 so we can
+        // strip the prefix character and re-insert it as a text node).
+        // Using a capture group instead of a lookbehind for broad browser compatibility.
+        const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(^|[\s(])(https?:\/\/[^\s<)"]+)/g;
 
         let lastIndex = 0;
         let match;
@@ -527,7 +526,11 @@ class DemoChat {
                     parent.appendChild(document.createTextNode(`[${label}](${url})`));
                 }
             } else {
-                const url = match[3] || match[0];
+                const prefix = match[3]; // whitespace / '(' / empty string
+                const url = match[4];
+                if (prefix) {
+                    parent.appendChild(document.createTextNode(prefix));
+                }
                 const a = this.buildLink(url, url);
                 if (a) {
                     parent.appendChild(a);
