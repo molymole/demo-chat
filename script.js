@@ -503,6 +503,9 @@ class DemoChat {
         // whitespace / '(' / start-of-string (captured in group 3 so we can
         // strip the prefix character and re-insert it as a text node).
         // Using a capture group instead of a lookbehind for broad browser compatibility.
+        // Note: bare URLs exclude <, ), " and whitespace to avoid over-matching;
+        // markdown-style link URLs exclude whitespace and ) — the closing parenthesis
+        // of the [label](url) syntax acts as the natural boundary.
         const linkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(^|[\s(])(https?:\/\/[^\s<)"]+)/g;
 
         let lastIndex = 0;
@@ -617,6 +620,7 @@ class DemoChat {
                 })
                 .join('');
         } else if (data.choices && data.choices[0]) {
+            // Fallback: OpenAI Chat Completions-compatible response format
             text = data.choices[0].message?.content || '';
         } else if (typeof data.output === 'string') {
             text = data.output;

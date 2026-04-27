@@ -424,7 +424,7 @@ header h1 {
 
 .disclaimer p {
     font-size: 0.72rem;
-    color: #999;
+    color: var(--color-text-muted);
 }
 
 /* ---- Footer ---- */
